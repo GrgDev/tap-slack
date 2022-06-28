@@ -59,22 +59,20 @@ class SlackStream:
 
     def get_absolute_date_range(self, start_date):
         """
-        Based on parameters in tap configuration, returns the absolute date range for the sync,
-        including the lookback window if applicable.
+        Based on parameters in tap configuration, returns the absolute date range for the sync
         :param start_date: The start date in the config, or the last synced date from the bookmark
         :return: the start date and the end date that make up the date range
         """
-        lookback_window = self.config.get('lookback_window', '14')
+        end_date = self.config.get('end_date', None)
         start_dttm = strptime_to_utc(start_date)
-        attribution_window = int(lookback_window)
-        now_dttm = utils.now()
-        delta_days = (now_dttm - start_dttm).days
-        if delta_days < attribution_window:
-            start_ddtm = now_dttm - timedelta(days=attribution_window)
+        if end_date:
+            end_dttm = strptime_to_utc(end_date)
         else:
-            start_ddtm = start_dttm
+            end_dttm = utils.now()
+        if end_dttm < start_dttm:
+            raise ValueError("The `end_date` value must be a more recent date than the `start_date` value.")
 
-        return start_ddtm, now_dttm
+        return start_dttm, end_dttm
 
     def _all_channels(self):
         types = "public_channel"
@@ -233,6 +231,8 @@ class ConversationHistoryStream(SlackStream):
                     # Window the requests based on the tap configuration
                     date_window_start = start
                     date_window_end = start + timedelta(days=int(self.date_window_size))
+                    if date_window_end > end:
+                        date_window_end = end
                     min_bookmark = start
                     max_bookmark = start
 
@@ -492,6 +492,8 @@ class FilesStream(SlackStream):
                 # Window the requests based on the tap configuration
                 date_window_start = start
                 date_window_end = start + timedelta(days=int(self.date_window_size))
+                if date_window_end > end:
+                    date_window_end = end
                 min_bookmark = start
                 max_bookmark = start
 
@@ -570,6 +572,8 @@ class RemoteFilesStream(SlackStream):
                 # Window the requests based on the tap configuration
                 date_window_start = start
                 date_window_end = start + timedelta(days=int(self.date_window_size))
+                if date_window_end > end:
+                    date_window_end = end
                 min_bookmark = start
                 max_bookmark = start
 
