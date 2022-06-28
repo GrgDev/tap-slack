@@ -59,20 +59,29 @@ class SlackStream:
 
     def get_absolute_date_range(self, start_date):
         """
-        Based on parameters in tap configuration, returns the absolute date range for the sync
+        Based on parameters in tap configuration, returns the absolute date range for the sync,
+        including the lookback window if applicable. Lookback window is overridden by end_date.
         :param start_date: The start date in the config, or the last synced date from the bookmark
         :return: the start date and the end date that make up the date range
         """
+        lookback_window = self.config.get('lookback_window', '14')
         end_date = self.config.get('end_date', None)
         start_dttm = strptime_to_utc(start_date)
+        attribution_window = int(lookback_window)
         if end_date:
             end_dttm = strptime_to_utc(end_date)
+            if end_dttm < start_dttm:
+                raise ValueError("The `end_date` value must be a more recent date than the `start_date` value.")
+            start_ddtm = start_dttm
         else:
             end_dttm = utils.now()
-        if end_dttm < start_dttm:
-            raise ValueError("The `end_date` value must be a more recent date than the `start_date` value.")
+            delta_days = (end_dttm - start_dttm).days
+            if delta_days < attribution_window:
+                start_ddtm = end_dttm - timedelta(days=attribution_window)
+            else:
+                start_ddtm = start_dttm
 
-        return start_dttm, end_dttm
+        return start_ddtm, end_dttm
 
     def _all_channels(self):
         types = "public_channel"
